@@ -16,10 +16,10 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
 WUMS_RELOCATIONS_DONE(args) {
     module_information_t *gModuleData = args.module_information;
     if (args.module_information == NULL) {
-        OSFatal("DynLoadPatcher: Failed to get gModuleData pointer.");
+        OSFatal("PatchMemoryRelocations: Failed to get gModuleData pointer.");
     }
     if (args.module_information->version != MODULE_INFORMATION_VERSION) {
-        OSFatal("DynLoadPatcher: The module information struct version does not match.");
+        OSFatal("PatchMemoryRelocations: The module information struct version does not match.");
     }
 
     WHBLogUdpInit();
