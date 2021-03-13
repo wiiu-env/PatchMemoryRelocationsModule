@@ -28,10 +28,10 @@ WUMS_RELOCATIONS_DONE(args) {
     for (int32_t i = 0; i < gModuleData->number_used_modules; i++) {
         if (strcmp("homebrew_memorymapping", gModuleData->module_data[i].module_export_name) == 0 ||
             strcmp("homebrew_patchmemoryrelocations", gModuleData->module_data[i].module_export_name) == 0) {
-            DEBUG_FUNCTION_LINE("Skip %s", gModuleData->module_data[i].module_export_name);
+            DEBUG_FUNCTION_LINE_VERBOSE("Skip %s", gModuleData->module_data[i].module_export_name);
             continue;
         }
-        DEBUG_FUNCTION_LINE("Patch relocations of %s", gModuleData->module_data[i].module_export_name);
+        DEBUG_FUNCTION_LINE_VERBOSE("Patch relocations of %s", gModuleData->module_data[i].module_export_name);
         for (uint32_t j = 0; j < DYN_LINK_RELOCATION_LIST_LENGTH; j++) {
             dyn_linking_relocation_entry_t *curEntry = &gModuleData->module_data[i].linking_entries[j];
             if (curEntry->functionEntry == NULL) {
