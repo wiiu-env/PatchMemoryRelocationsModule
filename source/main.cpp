@@ -158,7 +158,7 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
                             break;
                         }
                     }
-                    if (freeSlot != NULL) {
+                    if (freeSlot == nullptr) {
                         DEBUG_FUNCTION_LINE("***24-bit relative branch cannot hit target. Trampolin data list is full\n");
                         DEBUG_FUNCTION_LINE("***value %08X - target %08X = distance %08X\n", value, target, distance);
                         return false;
