@@ -2,7 +2,6 @@
 #include <whb/log_udp.h>
 #include <coreinit/debug.h>
 #include <cstring>
-#include <coreinit/dynload.h>
 #include <coreinit/cache.h>
 #include <memory/mappedmemory.h>
 #include "logger.h"
@@ -11,11 +10,12 @@ WUMS_MODULE_EXPORT_NAME("homebrew_patchmemoryrelocations");
 WUMS_MODULE_SKIP_ENTRYPOINT();
 WUMS_MODULE_INIT_BEFORE_RELOCATION_DONE_HOOK();
 
-bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampolin_entry_t *trampolin_data, uint32_t trampolin_data_length, RelocationType reloc_type);
+bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampolin_entry_t *trampolin_data, uint32_t trampolin_data_length,
+                RelocationType reloc_type);
 
 WUMS_RELOCATIONS_DONE(args) {
     module_information_t *gModuleData = args.module_information;
-    if (args.module_information == NULL) {
+    if (args.module_information == nullptr) {
         OSFatal("PatchMemoryRelocations: Failed to get gModuleData pointer.");
     }
     if (args.module_information->version != MODULE_INFORMATION_VERSION) {
@@ -31,24 +31,23 @@ WUMS_RELOCATIONS_DONE(args) {
             continue;
         }
         DEBUG_FUNCTION_LINE_VERBOSE("Patch relocations of %s", gModuleData->module_data[i].module_export_name);
-        for (uint32_t j = 0; j < DYN_LINK_RELOCATION_LIST_LENGTH; j++) {
-            dyn_linking_relocation_entry_t *curEntry = &gModuleData->module_data[i].linking_entries[j];
-            if (curEntry->functionEntry == NULL) {
+        for (auto &curEntry: gModuleData->module_data[i].linking_entries) {
+            if (curEntry.functionEntry == nullptr) {
                 continue;
             }
 
             uint32_t functionAddress = 0;
-            if (strncmp("coreinit", curEntry->importEntry->importName, DYN_LINK_IMPORT_NAME_LENGTH) == 0) {
-                if (strncmp("MEMAllocFromDefaultHeap", curEntry->functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
+            if (strncmp("coreinit", curEntry.importEntry->importName, DYN_LINK_IMPORT_NAME_LENGTH) == 0) {
+                if (strncmp("MEMAllocFromDefaultHeap", curEntry.functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
                     functionAddress = (uint32_t) &MEMAllocFromMappedMemory;
-                } else if (strncmp("MEMAllocFromDefaultHeapEx", curEntry->functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
+                } else if (strncmp("MEMAllocFromDefaultHeapEx", curEntry.functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
                     functionAddress = (uint32_t) &MEMAllocFromMappedMemoryEx;
-                } else if (strncmp("MEMFreeToDefaultHeap", curEntry->functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
+                } else if (strncmp("MEMFreeToDefaultHeap", curEntry.functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
                     functionAddress = (uint32_t) &MEMFreeToMappedMemory;
                 }
 
                 if (functionAddress != 0) {
-                    if (!elfLinkOne(curEntry->type, curEntry->offset, curEntry->addend, (uint32_t) curEntry->destination, functionAddress, NULL, 0, RELOC_TYPE_IMPORT)) {
+                    if (!elfLinkOne(curEntry.type, curEntry.offset, curEntry.addend, (uint32_t) curEntry.destination, functionAddress, nullptr, 0, RELOC_TYPE_IMPORT)) {
                         OSFatal("homebrew_patchmemoryrelocations: Relocation failed\n");
                     }
                 }
@@ -71,7 +70,8 @@ WUMS_RELOCATIONS_DONE(args) {
 #define R_PPC_GHS_REL16_LO      253
 
 // See https://github.com/decaf-emu/decaf-emu/blob/43366a34e7b55ab9d19b2444aeb0ccd46ac77dea/src/libdecaf/src/cafe/loader/cafe_loader_reloc.cpp#L144
-bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampolin_entry_t *trampolin_data, uint32_t trampolin_data_length, RelocationType reloc_type) {
+bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampolin_entry_t *trampolin_data, uint32_t trampolin_data_length,
+                RelocationType reloc_type) {
     if (type == R_PPC_NONE) {
         return true;
     }
@@ -139,12 +139,12 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
             // }
             auto distance = static_cast<int32_t>(value) - static_cast<int32_t>(target);
             if (distance > 0x1FFFFFC || distance < -0x1FFFFFC) {
-                if (trampolin_data == NULL) {
+                if (trampolin_data == nullptr) {
                     DEBUG_FUNCTION_LINE("***24-bit relative branch cannot hit target. Trampoline isn't provided\n");
                     DEBUG_FUNCTION_LINE("***value %08X - target %08X = distance %08X\n", value, target, distance);
                     return false;
                 } else {
-                    relocation_trampolin_entry_t *freeSlot = NULL;
+                    relocation_trampolin_entry_t *freeSlot = nullptr;
                     for (uint32_t i = 0; i < trampolin_data_length; i++) {
                         // We want to override "old" relocations of imports
                         // Pending relocations have the status RELOC_TRAMP_IMPORT_IN_PROGRESS.
