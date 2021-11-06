@@ -1,5 +1,7 @@
 #include <wums.h>
+#include <whb/log_cafe.h>
 #include <whb/log_udp.h>
+#include <whb/log_module.h>
 #include <coreinit/debug.h>
 #include <cstring>
 #include <coreinit/cache.h>
@@ -22,7 +24,10 @@ WUMS_RELOCATIONS_DONE(args) {
         OSFatal("PatchMemoryRelocations: The module information struct version does not match.");
     }
 
-    WHBLogUdpInit();
+    if (!WHBLogModuleInit()) {
+        WHBLogCafeInit();
+        WHBLogUdpInit();
+    }
 
     for (int32_t i = 0; i < gModuleData->number_used_modules; i++) {
         if (strcmp("homebrew_memorymapping", gModuleData->module_data[i].module_export_name) == 0 ||
