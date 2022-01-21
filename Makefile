@@ -28,7 +28,7 @@ INCLUDES	:=	source
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS	:=	-g -Wall -Wextra -O0 -ffunction-sections\
+CFLAGS	:=	-Wall -Wextra -O0 -ffunction-sections\
 			$(MACHDEP)
 
 CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__WUT__
@@ -37,6 +37,11 @@ CXXFLAGS	:= $(CFLAGS) -std=c++17
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map) -T$(WUMS_ROOT)/share/libmappedmemory.ld $(WUMSSPECS) 
+
+ifeq ($(DEBUG),1)
+CXXFLAGS += -DDEBUG -g
+CCFLAGS += -DDEBUG -g
+endif
 
 LIBS	:= -lwums -lwut -lmappedmemory
 
