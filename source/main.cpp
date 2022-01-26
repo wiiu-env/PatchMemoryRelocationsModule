@@ -1,11 +1,5 @@
 #include <wums.h>
 
-#ifdef DEBUG
-#include <whb/log_cafe.h>
-#include <whb/log_udp.h>
-#include <whb/log_module.h>
-#endif // DEBUG
-
 #include <coreinit/debug.h>
 #include <cstring>
 #include <coreinit/cache.h>
@@ -19,10 +13,6 @@ WUMS_MODULE_SKIP_INIT_FINI();
 bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampolin_entry_t *trampolin_data, uint32_t trampolin_data_length,
                 RelocationType reloc_type);
 
-uint32_t moduleLogInit = false;
-uint32_t cafeLogInit = false;
-uint32_t udpLogInit = false;
-
 WUMS_RELOCATIONS_DONE(args) {
     module_information_t *gModuleData = args.module_information;
     if (args.module_information == nullptr) {
@@ -32,12 +22,7 @@ WUMS_RELOCATIONS_DONE(args) {
         OSFatal("PatchMemoryRelocations: The module information struct version does not match.");
     }
 
-#ifdef DEBUG
-    if (!(moduleLogInit = WHBLogModuleInit())) {
-        cafeLogInit = WHBLogCafeInit();
-        udpLogInit = WHBLogUdpInit();
-    }
-#endif // DEBUG
+    initLogging();
 
     for (int32_t i = 0; i < gModuleData->number_used_modules; i++) {
         if (strcmp("homebrew_memorymapping", gModuleData->module_data[i].module_export_name) == 0 ||
@@ -69,20 +54,7 @@ WUMS_RELOCATIONS_DONE(args) {
             }
         }
     }
-#ifdef DEBUG
-    if (moduleLogInit) {
-        WHBLogModuleDeinit();
-        moduleLogInit = false;
-    }
-    if (cafeLogInit) {
-        WHBLogCafeDeinit();
-        cafeLogInit = false;
-    }
-    if (udpLogInit) {
-        WHBLogUdpDeinit();
-        udpLogInit = false;
-    }
-#endif // DEBUG
+    deinitLogging();
 }
 
 #define R_PPC_NONE              0
