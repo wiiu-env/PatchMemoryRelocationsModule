@@ -13,8 +13,8 @@
 #include "logger.h"
 
 WUMS_MODULE_EXPORT_NAME("homebrew_patchmemoryrelocations");
-WUMS_MODULE_SKIP_ENTRYPOINT();
 WUMS_MODULE_INIT_BEFORE_RELOCATION_DONE_HOOK();
+WUMS_MODULE_SKIP_INIT_FINI();
 
 bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampolin_entry_t *trampolin_data, uint32_t trampolin_data_length,
                 RelocationType reloc_type);
