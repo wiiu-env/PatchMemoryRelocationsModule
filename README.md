@@ -1,3 +1,5 @@
+[![CI-Release](https://github.com/wiiu-env/PatchMemoryRelocationsModule/actions/workflows/ci.yml/badge.svg)](https://github.com/wiiu-env/PatchMemoryRelocationsModule/actions/workflows/ci.yml)
+
 # PatchMemoryRelocationsModule 
 Replaces the usage of `MEMAllocFromDefaultHeap`, `MEMAllocFromDefaultHeapEx` and `MEMFreeToDefaultHeap` with similar function from the MemoryMappingModule in the currently running modules.
 
@@ -21,6 +23,10 @@ docker run -it --rm -v ${PWD}:/project patchmemoryrelocationsmodule-builder make
 # make clean
 docker run -it --rm -v ${PWD}:/project patchmemoryrelocationsmodule-builder make clean
 ```
+
+## Format the code via docker
+
+`docker run --rm -v ${PWD}:/src wiiuenv/clang-format:13.0.0-2 -r ./source -i`
 
 # Dependencies:
 - [wut](https://github.com/decaf-emu/wut)
