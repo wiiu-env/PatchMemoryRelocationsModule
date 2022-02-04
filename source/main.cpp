@@ -1,10 +1,10 @@
 #include <wums.h>
 
+#include "logger.h"
+#include <coreinit/cache.h>
 #include <coreinit/debug.h>
 #include <cstring>
-#include <coreinit/cache.h>
 #include <memory/mappedmemory.h>
-#include "logger.h"
 
 WUMS_MODULE_EXPORT_NAME("homebrew_patchmemoryrelocations");
 WUMS_MODULE_INIT_BEFORE_RELOCATION_DONE_HOOK();
@@ -31,7 +31,7 @@ WUMS_RELOCATIONS_DONE(args) {
             continue;
         }
         DEBUG_FUNCTION_LINE_VERBOSE("Patch relocations of %s", gModuleData->module_data[i].module_export_name);
-        for (auto &curEntry: gModuleData->module_data[i].linking_entries) {
+        for (auto &curEntry : gModuleData->module_data[i].linking_entries) {
             if (curEntry.functionEntry == nullptr) {
                 continue;
             }
@@ -57,18 +57,18 @@ WUMS_RELOCATIONS_DONE(args) {
     deinitLogging();
 }
 
-#define R_PPC_NONE              0
-#define R_PPC_ADDR32            1
-#define R_PPC_ADDR16_LO         4
-#define R_PPC_ADDR16_HI         5
-#define R_PPC_ADDR16_HA         6
-#define R_PPC_REL24             10
-#define R_PPC_REL14             11
-#define R_PPC_DTPMOD32          68
-#define R_PPC_DTPREL32          78
-#define R_PPC_GHS_REL16_HA      251
-#define R_PPC_GHS_REL16_HI      252
-#define R_PPC_GHS_REL16_LO      253
+#define R_PPC_NONE         0
+#define R_PPC_ADDR32       1
+#define R_PPC_ADDR16_LO    4
+#define R_PPC_ADDR16_HI    5
+#define R_PPC_ADDR16_HA    6
+#define R_PPC_REL24        10
+#define R_PPC_REL14        11
+#define R_PPC_DTPMOD32     68
+#define R_PPC_DTPREL32     78
+#define R_PPC_GHS_REL16_HA 251
+#define R_PPC_GHS_REL16_HI 252
+#define R_PPC_GHS_REL16_LO 253
 
 // See https://github.com/decaf-emu/decaf-emu/blob/43366a34e7b55ab9d19b2444aeb0ccd46ac77dea/src/libdecaf/src/cafe/loader/cafe_loader_reloc.cpp#L144
 bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampoline_entry_t *trampoline_data, uint32_t trampoline_data_length,
@@ -77,7 +77,7 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
         return true;
     }
     auto target = destination + offset;
-    auto value = symbol_addr + addend;
+    auto value  = symbol_addr + addend;
 
     auto relValue = value - static_cast<uint32_t>(target);
 
@@ -164,16 +164,16 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
                         DEBUG_FUNCTION_LINE("***value %08X - target %08X = distance %08X\n", value, target, distance);
                         return false;
                     }
-                    if (target - (uint32_t) &(freeSlot->trampoline[0]) > 0x1FFFFFC) {
+                    if (target - (uint32_t) & (freeSlot->trampoline[0]) > 0x1FFFFFC) {
                         DEBUG_FUNCTION_LINE("**Cannot link 24-bit jump (too far to tramp buffer).");
                         DEBUG_FUNCTION_LINE("***value %08X - target %08X = distance %08X\n", value, target, distance);
                         return false;
                     }
 
                     freeSlot->trampoline[0] = 0x3D600000 | ((((uint32_t) value) >> 16) & 0x0000FFFF); // lis r11, real_addr@h
-                    freeSlot->trampoline[1] = 0x616B0000 | (((uint32_t) value) & 0x0000ffff); // ori r11, r11, real_addr@l
-                    freeSlot->trampoline[2] = 0x7D6903A6; // mtctr   r11
-                    freeSlot->trampoline[3] = 0x4E800420; // bctr
+                    freeSlot->trampoline[1] = 0x616B0000 | (((uint32_t) value) & 0x0000ffff);         // ori r11, r11, real_addr@l
+                    freeSlot->trampoline[2] = 0x7D6903A6;                                             // mtctr   r11
+                    freeSlot->trampoline[3] = 0x4E800420;                                             // bctr
                     DCFlushRange((void *) freeSlot->trampoline, sizeof(freeSlot->trampoline));
                     ICInvalidateRange((unsigned char *) freeSlot->trampoline, sizeof(freeSlot->trampoline));
 
@@ -183,9 +183,9 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
                         // Relocations for the imports may be overridden
                         freeSlot->status = RELOC_TRAMP_IMPORT_IN_PROGRESS;
                     }
-                    uint32_t symbolValue = (uint32_t) &(freeSlot->trampoline[0]);
-                    value = symbolValue + addend;
-                    distance = static_cast<int32_t>(value) - static_cast<int32_t>(target);
+                    uint32_t symbolValue = (uint32_t) & (freeSlot->trampoline[0]);
+                    value                = symbolValue + addend;
+                    distance             = static_cast<int32_t>(value) - static_cast<int32_t>(target);
                     DEBUG_FUNCTION_LINE("Created tramp\n");
                 }
             }
