@@ -15,40 +15,42 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
                 RelocationType reloc_type);
 
 WUMS_RELOCATIONS_DONE(args) {
-    module_information_t *gModuleData = args.module_information;
-    if (args.module_information == nullptr) {
+    auto *gModuleData = args.module_information;
+    if (gModuleData == nullptr) {
         OSFatal("PatchMemoryRelocations: Failed to get gModuleData pointer.");
     }
-    if (args.module_information->version != MODULE_INFORMATION_VERSION) {
+    if (gModuleData->version != MODULE_INFORMATION_VERSION) {
         OSFatal("PatchMemoryRelocations: The module information struct version does not match.");
     }
 
     initLogging();
+    for (uint32_t i = 0; i < gModuleData->number_modules; i++) {
+        auto *curModule = &gModuleData->modules[i];
 
-    for (int32_t i = 0; i < gModuleData->number_used_modules; i++) {
-        if (strcmp("homebrew_memorymapping", gModuleData->module_data[i].module_export_name) == 0 ||
-            strcmp("homebrew_patchmemoryrelocations", gModuleData->module_data[i].module_export_name) == 0) {
-            DEBUG_FUNCTION_LINE_VERBOSE("Skip %s", gModuleData->module_data[i].module_export_name);
+        if (strcmp("homebrew_memorymapping", curModule->module_export_name) == 0 ||
+            strcmp("homebrew_patchmemoryrelocations", curModule->module_export_name) == 0 ||
+            strcmp("homebrew_functionpatcher", curModule->module_export_name) == 0) {
+            DEBUG_FUNCTION_LINE_VERBOSE("Skip %s", curModule->module_export_name);
             continue;
         }
-        DEBUG_FUNCTION_LINE_VERBOSE("Patch relocations of %s", gModuleData->module_data[i].module_export_name);
-        for (auto &curEntry : gModuleData->module_data[i].linking_entries) {
-            if (curEntry.functionEntry == nullptr) {
-                continue;
-            }
+
+        DEBUG_FUNCTION_LINE_VERBOSE("Patch relocations of %s", curModule->module_export_name);
+        for (uint32_t j = 0; j < curModule->number_linking_entries; j++) {
+            auto linkingEntry = &curModule->linking_entries[j];
 
             uint32_t functionAddress = 0;
-            if (strncmp("coreinit", curEntry.importEntry->importName, DYN_LINK_IMPORT_NAME_LENGTH) == 0) {
-                if (strncmp("MEMAllocFromDefaultHeap", curEntry.functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
+            // Skip the ".fimport_" part of the importName when comparing
+            if (strcmp("coreinit", &linkingEntry->importEntry->importName[9]) == 0) {
+                if (strcmp("MEMAllocFromDefaultHeap", linkingEntry->functionName) == 0) {
                     functionAddress = (uint32_t) &MEMAllocFromMappedMemory;
-                } else if (strncmp("MEMAllocFromDefaultHeapEx", curEntry.functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
+                } else if (strcmp("MEMAllocFromDefaultHeapEx", linkingEntry->functionName) == 0) {
                     functionAddress = (uint32_t) &MEMAllocFromMappedMemoryEx;
-                } else if (strncmp("MEMFreeToDefaultHeap", curEntry.functionEntry->functionName, DYN_LINK_FUNCTION_NAME_LENGTH) == 0) {
+                } else if (strcmp("MEMFreeToDefaultHeap", linkingEntry->functionName) == 0) {
                     functionAddress = (uint32_t) &MEMFreeToMappedMemory;
                 }
 
                 if (functionAddress != 0) {
-                    if (!elfLinkOne(curEntry.type, curEntry.offset, curEntry.addend, (uint32_t) curEntry.destination, functionAddress, nullptr, 0, RELOC_TYPE_IMPORT)) {
+                    if (!elfLinkOne(linkingEntry->type, linkingEntry->offset, linkingEntry->addend, (uint32_t) linkingEntry->destination, functionAddress, nullptr, 0, RELOC_TYPE_IMPORT)) {
                         OSFatal("homebrew_patchmemoryrelocations: Relocation failed\n");
                     }
                 }
@@ -73,7 +75,7 @@ WUMS_RELOCATIONS_DONE(args) {
 
 // See https://github.com/decaf-emu/decaf-emu/blob/43366a34e7b55ab9d19b2444aeb0ccd46ac77dea/src/libdecaf/src/cafe/loader/cafe_loader_reloc.cpp#L144
 bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampoline_entry_t *trampoline_data, uint32_t trampoline_data_length,
-                          RelocationType reloc_type) {
+                RelocationType reloc_type) {
     if (type == R_PPC_NONE) {
         return true;
     }
