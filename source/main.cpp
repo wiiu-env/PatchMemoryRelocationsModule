@@ -3,6 +3,7 @@
 #include "logger.h"
 #include <coreinit/cache.h>
 #include <coreinit/debug.h>
+#include <cstdlib>
 #include <cstring>
 #include <memory/mappedmemory.h>
 
@@ -72,10 +73,11 @@ WUMS_RELOCATIONS_DONE(args) {
 
 // See https://github.com/decaf-emu/decaf-emu/blob/43366a34e7b55ab9d19b2444aeb0ccd46ac77dea/src/libdecaf/src/cafe/loader/cafe_loader_reloc.cpp#L144
 bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampoline_entry_t *trampoline_data, uint32_t trampoline_data_length,
-                RelocationType reloc_type) {
+                          RelocationType reloc_type) {
     if (type == R_PPC_NONE) {
         return true;
     }
+
     auto target = destination + offset;
     auto value  = symbol_addr + addend;
 
@@ -97,7 +99,7 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
             *((uint16_t *) (target)) = static_cast<uint16_t>((value + 0x8000) >> 16);
             break;
         case R_PPC_DTPMOD32:
-            DEBUG_FUNCTION_LINE("################IMPLEMENT ME\n");
+            DEBUG_FUNCTION_LINE_ERR("################IMPLEMENT ME");
             //*((int32_t *)(target)) = tlsModuleIndex;
             break;
         case R_PPC_DTPREL32:
@@ -115,18 +117,18 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
         case R_PPC_REL14: {
             auto distance = static_cast<int32_t>(value) - static_cast<int32_t>(target);
             if (distance > 0x7FFC || distance < -0x7FFC) {
-                DEBUG_FUNCTION_LINE("***14-bit relative branch cannot hit target.");
+                DEBUG_FUNCTION_LINE_ERR("***14-bit relative branch cannot hit target.");
                 return false;
             }
 
             if (distance & 3) {
-                DEBUG_FUNCTION_LINE("***RELOC ERROR %d: lower 2 bits must be zero before shifting.", -470040);
+                DEBUG_FUNCTION_LINE_ERR("***RELOC ERROR %d: lower 2 bits must be zero before shifting.", -470040);
                 return false;
             }
 
             if ((distance >= 0 && (distance & 0xFFFF8000)) ||
                 (distance < 0 && ((distance & 0xFFFF8000) != 0xFFFF8000))) {
-                DEBUG_FUNCTION_LINE("***RELOC ERROR %d: upper 17 bits before shift must all be the same.", -470040);
+                DEBUG_FUNCTION_LINE_ERR("***RELOC ERROR %d: upper 17 bits before shift must all be the same.", -470040);
                 return false;
             }
 
@@ -141,8 +143,8 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
             auto distance = static_cast<int32_t>(value) - static_cast<int32_t>(target);
             if (distance > 0x1FFFFFC || distance < -0x1FFFFFC) {
                 if (trampoline_data == nullptr) {
-                    DEBUG_FUNCTION_LINE("***24-bit relative branch cannot hit target. Trampoline isn't provided\n");
-                    DEBUG_FUNCTION_LINE("***value %08X - target %08X = distance %08X\n", value, target, distance);
+                    DEBUG_FUNCTION_LINE_ERR("***24-bit relative branch cannot hit target. Trampoline isn't provided");
+                    DEBUG_FUNCTION_LINE_ERR("***value %08X - target %08X = distance %08X", value, target, distance);
                     return false;
                 } else {
                     relocation_trampoline_entry_t *freeSlot = nullptr;
@@ -160,13 +162,20 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
                         }
                     }
                     if (freeSlot == nullptr) {
-                        DEBUG_FUNCTION_LINE("***24-bit relative branch cannot hit target. Trampoline data list is full\n");
-                        DEBUG_FUNCTION_LINE("***value %08X - target %08X = distance %08X\n", value, target, distance);
+                        DEBUG_FUNCTION_LINE_ERR("***24-bit relative branch cannot hit target. Trampoline data list is full");
+                        DEBUG_FUNCTION_LINE_ERR("***value %08X - target %08X = distance %08X", value, target, target - (uint32_t) & (freeSlot->trampoline[0]));
                         return false;
                     }
-                    if (target - (uint32_t) & (freeSlot->trampoline[0]) > 0x1FFFFFC) {
-                        DEBUG_FUNCTION_LINE("**Cannot link 24-bit jump (too far to tramp buffer).");
-                        DEBUG_FUNCTION_LINE("***value %08X - target %08X = distance %08X\n", value, target, distance);
+                    auto symbolValue = (uint32_t) & (freeSlot->trampoline[0]);
+                    auto newValue    = symbolValue + addend;
+                    auto newDistance = static_cast<int32_t>(newValue) - static_cast<int32_t>(target);
+                    if (newDistance > 0x1FFFFFC || newDistance < -0x1FFFFFC) {
+                        DEBUG_FUNCTION_LINE_ERR("**Cannot link 24-bit jump (too far to tramp buffer).");
+                        if (newDistance < 0) {
+                            DEBUG_FUNCTION_LINE_ERR("***value %08X - target %08X = distance -%08X", newValue, target, abs(newDistance));
+                        } else {
+                            DEBUG_FUNCTION_LINE_ERR("***value %08X - target %08X = distance  %08X", newValue, target, newDistance);
+                        }
                         return false;
                     }
 
@@ -181,27 +190,24 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
                         freeSlot->status = RELOC_TRAMP_FIXED;
                     } else {
                         // Relocations for the imports may be overridden
-                        freeSlot->status = RELOC_TRAMP_IMPORT_IN_PROGRESS;
+                        freeSlot->status = RELOC_TRAMP_IMPORT_DONE;
                     }
-                    uint32_t symbolValue = (uint32_t) & (freeSlot->trampoline[0]);
-                    value                = symbolValue + addend;
-                    distance             = static_cast<int32_t>(value) - static_cast<int32_t>(target);
-                    DEBUG_FUNCTION_LINE("Created tramp\n");
+                    distance = newDistance;
                 }
             }
 
             if (distance & 3) {
-                DEBUG_FUNCTION_LINE("***RELOC ERROR %d: lower 2 bits must be zero before shifting.", -470022);
+                DEBUG_FUNCTION_LINE_ERR("***RELOC ERROR %d: lower 2 bits must be zero before shifting.", -470022);
                 return false;
             }
 
             if (distance < 0 && (distance & 0xFE000000) != 0xFE000000) {
-                DEBUG_FUNCTION_LINE("***RELOC ERROR %d: upper 7 bits before shift must all be the same (1).", -470040);
+                DEBUG_FUNCTION_LINE_ERR("***RELOC ERROR %d: upper 7 bits before shift must all be the same (1).", -470040);
                 return false;
             }
 
             if (distance >= 0 && (distance & 0xFE000000)) {
-                DEBUG_FUNCTION_LINE("***RELOC ERROR %d: upper 7 bits before shift must all be the same (0).", -470040);
+                DEBUG_FUNCTION_LINE_ERR("***RELOC ERROR %d: upper 7 bits before shift must all be the same (0).", -470040);
                 return false;
             }
 
@@ -209,10 +215,10 @@ bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, 
             break;
         }
         default:
-            DEBUG_FUNCTION_LINE("***ERROR: Unsupported Relocation_Add Type (%08X):", type);
+            DEBUG_FUNCTION_LINE_ERR("***ERROR: Unsupported Relocation_Add Type (%08X):", type);
             return false;
     }
-    DCFlushRange((void *) target, 4);
-    ICInvalidateRange((void *) target, 4);
+    ICInvalidateRange(reinterpret_cast<void *>(target), 4);
+    DCFlushRange(reinterpret_cast<void *>(target), 4);
     return true;
 }
