@@ -1,15 +1,22 @@
 #include <wums.h>
 
 #include "logger.h"
+#include "version.h"
 #include <coreinit/cache.h>
 #include <coreinit/debug.h>
 #include <cstdlib>
 #include <cstring>
 #include <memory/mappedmemory.h>
 
+#define VERSION "v0.1"
+
 WUMS_MODULE_EXPORT_NAME("homebrew_patchmemoryrelocations");
 WUMS_MODULE_INIT_BEFORE_RELOCATION_DONE_HOOK();
 WUMS_MODULE_SKIP_INIT_FINI();
+
+WUMS_APPLICATION_STARTS() {
+    OSReport("Running PatchMemoryRelocationsModule " VERSION VERSION_EXTRA "\n");
+}
 
 bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampoline_entry_t *trampoline_data, uint32_t trampoline_data_length,
                 RelocationType reloc_type);
