@@ -8,7 +8,7 @@
 #include <cstring>
 #include <memory/mappedmemory.h>
 
-#define VERSION "v0.1"
+#define VERSION "v0.1.1"
 
 WUMS_MODULE_EXPORT_NAME("homebrew_patchmemoryrelocations");
 WUMS_MODULE_INIT_BEFORE_RELOCATION_DONE_HOOK();
