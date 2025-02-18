@@ -2,17 +2,40 @@
 
 #include "logger.h"
 #include "version.h"
-#include <coreinit/cache.h>
-#include <coreinit/debug.h>
-#include <cstdlib>
-#include <cstring>
+
 #include <memory/mappedmemory.h>
 
-#define VERSION "v0.1.2"
+#include <coreinit/cache.h>
+#include <coreinit/debug.h>
+#include <coreinit/dynload.h>
+
+#include <algorithm>
+#include <map>
+#include <string>
+#include <vector>
+
+#include <cstdlib>
+#include <cstring>
+
+#define VERSION "v0.1.3"
 
 WUMS_MODULE_EXPORT_NAME("homebrew_patchmemoryrelocations");
 WUMS_MODULE_INIT_BEFORE_RELOCATION_DONE_HOOK();
 WUMS_MODULE_SKIP_INIT_FINI();
+
+std::map<std::string, OSDynLoad_Module> gUsedRPLs;
+std::vector<void *> gAllocatedAddresses;
+
+WUMS_INTERNAL_HOOK_CLEAR_ALLOCATED_RPL_MEMORY() {
+    gUsedRPLs.clear();
+    // If an allocated rpl was not released properly (e.g. if something else calls OSDynload_Acquire without releasing it)
+    // memory gets leaked. Let's clean this up!
+    for (auto &addr : gAllocatedAddresses) {
+        DEBUG_FUNCTION_LINE_ERR("Memory allocated by OSDynload was not freed properly, let's clean it up! (%08X)", addr);
+        free((void *) addr);
+    }
+    gAllocatedAddresses.clear();
+}
 
 WUMS_APPLICATION_STARTS() {
     OSReport("Running PatchMemoryRelocationsModule " VERSION VERSION_EXTRA "\n");
@@ -20,6 +43,41 @@ WUMS_APPLICATION_STARTS() {
 
 bool elfLinkOne(char type, size_t offset, int32_t addend, uint32_t destination, uint32_t symbol_addr, relocation_trampoline_entry_t *trampoline_data, uint32_t trampoline_data_length,
                 RelocationType reloc_type);
+
+static uint32_t CustomDynLoadAlloc(int32_t size, int32_t align, void **outAddr) {
+    if (!outAddr) {
+        return OS_DYNLOAD_INVALID_ALLOCATOR_PTR;
+    }
+
+    if (align >= 0 && align < 4) {
+        align = 4;
+    } else if (align < 0 && align > -4) {
+        align = -4;
+    }
+
+    if (!((*outAddr = MEMAllocFromMappedMemoryEx(size, align)))) {
+        return OS_DYNLOAD_OUT_OF_MEMORY;
+    }
+
+    // keep track of allocated memory to clean it up in case the RPLs won't get unloaded properly
+    gAllocatedAddresses.push_back(*outAddr);
+
+    return OS_DYNLOAD_OK;
+}
+
+static void CustomDynLoadFree(void *addr) {
+    MEMFreeToMappedMemory(addr);
+
+    // Remove from list
+    if (const auto it = std::ranges::find(gAllocatedAddresses, addr); it != gAllocatedAddresses.end()) {
+        gAllocatedAddresses.erase(it);
+    }
+}
+
+WUMS_INTERNAL_GET_CUSTOM_RPL_ALLOCATOR() {
+    DEBUG_FUNCTION_LINE_ERR("WUMS_INTERNAL_GET_CUSTOM_RPL_ALLOCATOR");
+    return {CustomDynLoadAlloc, CustomDynLoadFree};
+}
 
 WUMS_RELOCATIONS_DONE(args) {
     auto *gModuleData = args.module_information;
