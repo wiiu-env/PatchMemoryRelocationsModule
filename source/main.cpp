@@ -31,7 +31,7 @@ WUMS_INTERNAL_HOOK_CLEAR_ALLOCATED_RPL_MEMORY() {
     // If an allocated rpl was not released properly (e.g. if something else calls OSDynload_Acquire without releasing it)
     // memory gets leaked. Let's clean this up!
     for (auto &addr : gAllocatedAddresses) {
-        DEBUG_FUNCTION_LINE_ERR("Memory allocated by OSDynload was not freed properly, let's clean it up! (%08X)", addr);
+        DEBUG_FUNCTION_LINE_WARN("Memory allocated by OSDynload was not freed properly, let's clean it up! (%08X)", addr);
         free((void *) addr);
     }
     gAllocatedAddresses.clear();
@@ -75,7 +75,6 @@ static void CustomDynLoadFree(void *addr) {
 }
 
 WUMS_INTERNAL_GET_CUSTOM_RPL_ALLOCATOR() {
-    DEBUG_FUNCTION_LINE_ERR("WUMS_INTERNAL_GET_CUSTOM_RPL_ALLOCATOR");
     return {CustomDynLoadAlloc, CustomDynLoadFree};
 }
 
