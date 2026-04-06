@@ -17,7 +17,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#define VERSION "v0.1.3"
+#define VERSION "v0.1.4"
 
 WUMS_MODULE_EXPORT_NAME("homebrew_patchmemoryrelocations");
 WUMS_MODULE_INIT_BEFORE_RELOCATION_DONE_HOOK();
