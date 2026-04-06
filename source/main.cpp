@@ -31,8 +31,8 @@ WUMS_INTERNAL_HOOK_CLEAR_ALLOCATED_RPL_MEMORY() {
     // If an allocated rpl was not released properly (e.g. if something else calls OSDynload_Acquire without releasing it)
     // memory gets leaked. Let's clean this up!
     for (auto &addr : gAllocatedAddresses) {
-        DEBUG_FUNCTION_LINE_WARN("Memory allocated by OSDynload was not freed properly, let's clean it up! (%08X)", addr);
-        free((void *) addr);
+        DEBUG_FUNCTION_LINE_INFO("Memory allocated by OSDynload was not freed properly, let's clean it up! (%p)", addr);
+        MEMFreeToMappedMemory((void *) addr);
     }
     gAllocatedAddresses.clear();
 }
